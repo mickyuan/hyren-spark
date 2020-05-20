@@ -9,7 +9,14 @@ and Spark Streaming for stream processing.
 
 <http://spark.apache.org/>
 
-
+Note:
+    This version is copied by spark tag v2.3.2.
+    1. Add the newest fd-core-*.jar,fd-database-*.jar,hrds-commons-*.jar to 
+    ${SPARK_HOME}/jars after building a runnable distribution.
+    2. Add spark.hyren.crossing.database true to spark-default.conf 
+    3. copy hyren resources folder to ${SPARK_HOME}/
+    4. Start with command ./sbin/start-thriftserver.sh --driver-class-path resources --master local[*]
+    
 ## Online Documentation
 
 You can find the latest Spark documentation, including a programming

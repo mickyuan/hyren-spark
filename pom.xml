@@ -89,16 +89,16 @@
     <module>common/unsafe</module>
     <module>common/tags</module>
     <module>core</module>
-    <module>graphx</module>
-    <module>mllib</module>
-    <module>mllib-local</module>
+<!--    <module>graphx</module>-->
+<!--    <module>mllib</module>-->
+<!--    <module>mllib-local</module>-->
     <module>tools</module>
     <module>streaming</module>
     <module>sql/catalyst</module>
     <module>sql/core</module>
     <module>sql/hive</module>
     <module>assembly</module>
-    <module>examples</module>
+<!--    <module>examples</module>-->
     <module>repl</module>
     <module>launcher</module>
     <module>external/kafka-0-10</module>
@@ -808,13 +808,24 @@
         <groupId>mysql</groupId>
         <artifactId>mysql-connector-java</artifactId>
         <version>5.1.38</version>
-        <scope>test</scope>
+<!--        <scope>test</scope>-->
       </dependency>
       <dependency>
         <groupId>org.postgresql</groupId>
         <artifactId>postgresql</artifactId>
         <version>9.4.1207.jre7</version>
-        <scope>test</scope>
+<!--        <scope>test</scope>-->
+      </dependency>
+      <dependency>
+        <groupId>com.oracle.database.jdbc</groupId>
+        <artifactId>ojdbc8</artifactId>
+        <version>12.2.0.1</version>
+        <exclusions>
+          <exclusion>
+            <groupId>*</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
       <dependency>
         <groupId>org.apache.curator</groupId>
@@ -1989,6 +2000,30 @@
           </exclusion>
         </exclusions>
       </dependency>
+      <dependency>
+        <groupId>com.zaxxer</groupId>
+        <artifactId>HikariCP</artifactId>
+        <version>3.3.1</version>
+        <exclusions>
+          <exclusion>
+            <groupId>*</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-api</artifactId>
+        <version>2.11.2</version>
+        <exclusions>
+          <exclusion>
+            <groupId>*</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
     </dependencies>
   </dependencyManagement>
 
@@ -2331,6 +2366,7 @@
                 <!-- This includes dependencies with 'runtime' and 'compile' scopes;
                      see the docs for includeScope for more details -->
                 <includeScope>runtime</includeScope>
+                <includeScope>system</includeScope>
               </configuration>
             </execution>
           </executions>

@@ -19,26 +19,31 @@ package org.apache.spark.sql.hive.thriftserver
 
 import java.security.PrivilegedExceptionAction
 import java.sql.{Date, Timestamp}
-import java.util.{Arrays, Map => JMap, UUID}
 import java.util.concurrent.RejectedExecutionException
+import java.util.{Arrays, UUID, Map => JMap}
 
-import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
-import scala.util.control.NonFatal
-
+import com.alibaba.druid.sql.dialect.oracle.parser.OracleStatementParser
+import com.alibaba.druid.sql.dialect.oracle.visitor.OracleSchemaStatVisitor
+import fd.ng.db.jdbc.DatabaseWrapper
+import hrds.commons.codes.Store_type
+import hrds.commons.collection.ProcessingData
+import hrds.commons.utils.StorageTypeKey
 import org.apache.hadoop.hive.metastore.api.FieldSchema
 import org.apache.hadoop.hive.shims.Utils
 import org.apache.hive.service.cli._
 import org.apache.hive.service.cli.operation.ExecuteStatementOperation
 import org.apache.hive.service.cli.session.HiveSession
-
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{DataFrame, Row => SparkRow, SQLContext}
 import org.apache.spark.sql.execution.command.SetCommand
 import org.apache.spark.sql.hive.HiveUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, SQLContext, Row => SparkRow}
 import org.apache.spark.util.{Utils => SparkUtils}
+
+import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
+import scala.util.control.NonFatal
 
 private[hive] class SparkExecuteStatementOperation(
     parentSession: HiveSession,
@@ -229,6 +234,10 @@ private[hive] class SparkExecuteStatementOperation(
       sqlContext.sparkContext.setLocalProperty("spark.scheduler.pool", pool)
     }
     try {
+      if ("true".equalsIgnoreCase(sqlContext.
+        getConf("spark.hyren.crossing.database", "false"))) {
+        registerJdbcTableView(statement)
+      }
       result = sqlContext.sql(statement)
       logDebug(result.queryExecution.toString())
       result.queryExecution.logical match {
@@ -270,6 +279,52 @@ private[hive] class SparkExecuteStatementOperation(
     }
     setState(OperationState.FINISHED)
     HiveThriftServer2.listener.onStatementFinish(statementId)
+  }
+
+  private def registerJdbcTableView(statement: String): Unit = {
+    val visitor = new OracleSchemaStatVisitor
+    try{
+    new OracleStatementParser(statement)
+      .parseStatement
+      .accept(visitor)
+    } catch {
+      case _: Exception =>
+    }
+    if(visitor.getTables.isEmpty) return
+    var db: DatabaseWrapper = null
+    try {
+      db = new DatabaseWrapper()
+      for (table <- visitor.getTables.keySet().asScala) {
+        if (!sqlContext.sparkSession.catalog.tableExists(table.getName)) {
+
+          val layers = ProcessingData.getLayerByTable(table.getName, db)
+          if (layers != null) {
+            val l = layers
+              .asScala
+              .filter(_.getStore_type.equals(Store_type.DATABASE.getCode))
+            if (l.nonEmpty) {
+              val attr = l.head.getLayerAttr.asScala
+              val url = attr(StorageTypeKey.jdbc_url)
+              val user = attr(StorageTypeKey.user_name)
+              val pwd = attr(StorageTypeKey.database_pwd)
+              sqlContext.read
+                .format("jdbc")
+                .option("url", url)
+                .option("dbtable", table.getName)
+                .option("user", user)
+                .option("password", pwd)
+                .load()
+                .createOrReplaceTempView(table.getName);
+              logInfo(s"created temporary view ${table.getName} with $url:$user:$pwd")
+            }
+          }
+        }
+      }
+    } finally {
+      if (db!=null) {
+        db.close()
+      }
+    }
   }
 
   override def cancel(): Unit = {

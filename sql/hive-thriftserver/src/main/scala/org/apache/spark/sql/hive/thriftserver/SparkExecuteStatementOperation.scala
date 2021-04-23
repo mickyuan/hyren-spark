@@ -282,6 +282,9 @@ private[hive] class SparkExecuteStatementOperation(
   }
 
   private def registerJdbcTableView(statement: String): Unit = {
+    if ( !statement.trim.toUpperCase.startsWith("SELECT") ) {
+      return
+    }
     val visitor = new OracleSchemaStatVisitor
     try{
     new OracleStatementParser(statement)
@@ -294,6 +297,7 @@ private[hive] class SparkExecuteStatementOperation(
     var db: DatabaseWrapper = null
     try {
       db = new DatabaseWrapper()
+      logInfo(db.getConnection.getMetaData.getURL)
       for (table <- visitor.getTables.keySet().asScala) {
         if (!sqlContext.sparkSession.catalog.tableExists(table.getName)) {
 
